@@ -7,7 +7,8 @@ from os.path import isfile, join
 import pickle
 import argparse
 
-#os.environ["CUDA_VISIBLE_DEVICES"]="0"
+# os.environ["CUDA_VISIBLE_DEVICES"]="0"
+os.environ["TOKENIZERS_PARALLELISM"] = 'false'
 
 from sklearn.preprocessing import MultiLabelBinarizer
 from sklearn.metrics import f1_score
@@ -279,11 +280,17 @@ dataset_val_tt_split = PersTecData_tt_split(data_type="dev",
 val_loader_tt_split = DataLoader(dataset_val_tt_split, batch_size=8,
                                  num_workers=20, pin_memory=True)
 
+#dataset_test_tt_split = PersTecData_tt_split(data_type="test",
+#                                            tokenizer=tokenizer, language = LANGUAGE)
+#test_loader_tt_split = DataLoader(dataset_test_tt_split, batch_size=8,
+#                                 num_workers=20, pin_memory=True)
+
 #Data visualization
-print(dataset_val_tt_split.input_ids[0])
-print(tokenizer.convert_ids_to_tokens(dataset_val_tt_split.input_ids[0]))
-label = dataset_val_tt_split.y[0]
+print(dataset_val_tt_split.input_ids[5])
+print(tokenizer.convert_ids_to_tokens(dataset_val_tt_split.input_ids[5]))
+label = dataset_val_tt_split.y[5]
 print(label)
+print(dataset_val_tt_split[5][3],dataset_val_tt_split[5][4])
 print(my_binarizer_task1.inverse_transform(label.reshape(1, -1)))
 
 #new_model = PLMClassifier_tt_split.load_from_checkpoint('../lightning_logs/Bert_10-v1.ckpt', plm = classification_model)
@@ -311,10 +318,10 @@ logger = WandbLogger()
 trainer1 = pl.Trainer(accelerator = 'gpu', devices = [2],max_epochs=EPOCHS, logger = logger, callbacks=[checkpoint_callback])
 
 trainer1.fit(model, train_loader_tt_split, 
-             val_loader_tt_split)
+             val_loader_tt_split) #test_loader_tt_split
 wandb.finish()
 
-#Validation
+#Test
 def test_classifier(model, data_loader, thresholds):
     model.cuda()
     model.eval()
@@ -332,7 +339,7 @@ def test_classifier(model, data_loader, thresholds):
     return result
 
 thresholds = [x / 10 for x in range(0, 11)]
-result = test_classifier(model, val_loader_tt_split, thresholds)
+result = test_classifier(model, val_loader_tt_split, thresholds) #test_loader_tt_split
 
 with open('../lightning_logs/{}_dictionary.pkl'.format(run_name), 'wb') as f:
     pickle.dump(result, f)

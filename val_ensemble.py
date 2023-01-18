@@ -325,6 +325,8 @@ if LANGUAGE == 'ru':
     train_loader_bert = DataLoader(dataset_train_bert, batch_size=8,num_workers=0, pin_memory=True)
     dataset_val_bert = PersTecData_tt_split(data_type="dev",tokenizer=tokenizer_bert, language = LANGUAGE)
     val_loader_tt_split = DataLoader(dataset_val_bert, batch_size=8,num_workers=0, pin_memory=True)
+    #dataset_test_bert = PersTecData_tt_split(data_type="test",tokenizer=tokenizer_bert, language = LANGUAGE)
+    #test_loader_tt_split = DataLoader(dataset_test_bert, batch_size=8,num_workers=0, pin_memory=True)
     
     tokenizer_roberta = AutoTokenizer.from_pretrained("blinoff/roberta-base-russian-v0", use_fast=True)
     tokenizer_roberta = AutoTokenizer.from_pretrained("roberta-base", use_fast=True)
@@ -332,6 +334,9 @@ if LANGUAGE == 'ru':
     train_loader_RoBERTa = DataLoader(dataset_train_RoBERTa, batch_size=8, num_workers=2, pin_memory=True)
     dataset_val_RoBERTa = PersTecData_tt_split(data_type="dev", tokenizer=tokenizer_roberta, language=LANGUAGE)
     val_loader_RoBERTa = DataLoader(dataset_val_RoBERTa, batch_size=8, num_workers=2, pin_memory=True)
+    #dataset_test_RoBERTa = PersTecData_tt_split(data_type="test", tokenizer=tokenizer_roberta, language=LANGUAGE)
+    #test_loader_RoBERTa = DataLoader(dataset_test_RoBERTa, batch_size=8, num_workers=2, pin_memory=True)
+
 
     dataset_val1_ensemble = PersTecDataEnsemble(data_type="dev",tokenizers=[tokenizer_bert, tokenizer_roberta])
     val_loader_ensemble = DataLoader(dataset_val1_ensemble, batch_size=8, num_workers=2, pin_memory=True)
@@ -351,6 +356,8 @@ if LANGUAGE == 'po':
     train_loader_bert = DataLoader(dataset_train_bert, batch_size=8,num_workers=0, pin_memory=True)
     dataset_val_bert = PersTecData_tt_split(data_type="dev",tokenizer=tokenizer_bert, language = LANGUAGE)
     val_loader_tt_split = DataLoader(dataset_val_bert, batch_size=8,num_workers=0, pin_memory=True)
+    dataset_test_bert = PersTecData_tt_split(data_type="test",tokenizer=tokenizer_bert, language = LANGUAGE)
+    test_loader_tt_split = DataLoader(dataset_test_bert, batch_size=8,num_workers=0, pin_memory=True)
     
     tokenizer_roberta = AutoTokenizer.from_pretrained("sdadas/polish-roberta-large-v2", use_fast=True)
     tokenizer_roberta = AutoTokenizer.from_pretrained("roberta-base", use_fast=True)
@@ -358,6 +365,8 @@ if LANGUAGE == 'po':
     train_loader_RoBERTa = DataLoader(dataset_train_RoBERTa, batch_size=8, num_workers=2, pin_memory=True)
     dataset_val_RoBERTa = PersTecData_tt_split(data_type="dev", tokenizer=tokenizer_roberta, language=LANGUAGE)
     val_loader_RoBERTa = DataLoader(dataset_val_RoBERTa, batch_size=8, num_workers=2, pin_memory=True)
+    dataset_test_RoBERTa = PersTecData_tt_split(data_type="test", tokenizer=tokenizer_roberta, language=LANGUAGE)
+    test_loader_RoBERTa = DataLoader(dataset_test_RoBERTa, batch_size=8, num_workers=2, pin_memory=True)
 
     dataset_val1_ensemble = PersTecDataEnsemble(data_type="dev",tokenizers=[tokenizer_bert, tokenizer_roberta])
     val_loader_ensemble = DataLoader(dataset_val1_ensemble, batch_size=8, num_workers=2, pin_memory=True)
