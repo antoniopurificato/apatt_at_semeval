@@ -7,7 +7,7 @@ from os.path import isfile, join
 import pickle
 import argparse
 
-os.environ["CUDA_VISIBLE_DEVICES"]="0"
+#os.environ["CUDA_VISIBLE_DEVICES"]="0"
 
 from sklearn.preprocessing import MultiLabelBinarizer
 from sklearn.metrics import f1_score
@@ -40,7 +40,7 @@ os.environ['WANDB_MODE'] = args.mode
 
 
 #Useful settings
-PATH = '/home/antpur/projects/apatt_at_semeval/semeval2023task3bundle-v3'
+PATH = '/home/antpur/projects/apatt_at_semeval/semeval2023task3bundle-v3/'
 os.chdir(PATH)
 wandb.login(key = '88987d90526e97d3144c1c3c7ff85ae9b3ea37ad')
 torch.manual_seed(21)
@@ -64,7 +64,9 @@ def set_folder(data_type, language= 'en'):
     labels_folder =  'data/{}/train-labels-subtask-3.txt'.format(language)
   if data_type == 'dev':
     input_folder = 'data/{}/dev-articles-subtask-3/'.format(language)
-    labels_folder = None
+    labels_folder = 'data/{}/dev-labels-subtask-3.txt'.format(language)
+  if data_type == 'test':
+    input_folder = 'data/{}/test-articles-subtask-3/'.format(language)
   return input_folder,labels_folder
 
 def make_dataframe(data_type = 'train', language = 'en'):
@@ -101,14 +103,16 @@ def load_data_tt_split(data_type = 'train', language = 'en'):
       train_df = make_dataframe(data_type = 'train', language = language)
     if data_type == 'dev':
       train_df = make_dataframe(data_type = 'dev', language = language)
+    if data_type == 'test':
+      train_df = make_dataframe(data_type = 'test', language = language)
       
     all_idxs = train_df["id"].to_numpy()
     all_lines = train_df["line"].to_numpy()
     all_data = train_df["text"].to_numpy()
-    if data_type == 'train':
+    if data_type == 'train' or data_type == 'dev':
       all_labels = my_binarizer_task1.transform(train_df['labels'].fillna('').str.split(',').values)
       return all_idxs, all_lines, all_data, torch.tensor(all_labels)
-    if data_type == 'dev':
+    if data_type == 'test':
       return all_idxs, all_lines, all_data#, torch.tensor(all_labels)
 
 my_binarizer_task1 = MultiLabelBinarizer()
@@ -127,9 +131,9 @@ class PersTecData_tt_split(torch.utils.data.Dataset):
     def __init__(self, data_type="train", tokenizer=None, language = 'en'):
         self.data_type = data_type
         self.language = language
-        if self.data_type == 'train':
+        if self.data_type == 'train' or data_type == 'dev':
           self.idxs, self.lines, X, self.y = load_data_tt_split(self.data_type, self.language)
-        else:
+        if data_type == 'test':
           self.idxs, self.lines, X = load_data_tt_split(self.data_type, self.language)
         self.tokenized = False
         if tokenizer != None:
@@ -147,10 +151,10 @@ class PersTecData_tt_split(torch.utils.data.Dataset):
         mask = self.attention_mask[index]
         a = torch.squeeze(torch.tensor(self.idxs)[index])
         b = torch.squeeze(torch.tensor(self.lines)[index])
-        if self.data_type == 'train':
+        if self.data_type == 'train' or self.data_type == 'dev':
           label = torch.squeeze(self.y[index])
           return sample, mask, label, a, b
-        if self.data_type == 'dev':
+        if self.data_type == 'test':
           return sample, mask, a, b
 
     def __len__(self):
@@ -182,6 +186,13 @@ class PLMClassifier_tt_split(pl.LightningModule):
         return {"loss": loss}
 
     def validation_step(self, batch, batch_idx):
+        batch_ids, batch_mask, labels, _, _ = batch
+        preds = self(samples=batch_ids, masks=batch_mask)
+        loss = self.criterion(preds, labels.float())
+        #wandb.log({"Training loss": loss.item()}) 
+        return {"loss": loss}
+
+    def test_step(self, batch, batch_idx):
         batch_ids, batch_mask, article, line = batch
         preds = self(samples=batch_ids, masks=batch_mask)
         for threshold in self.thresholds:
@@ -261,17 +272,17 @@ if model_name == 'alBERT':
 #Dasaset and Dataloader creation 
 dataset_train_tt_split = PersTecData_tt_split(data_type="train",tokenizer=tokenizer, language = LANGUAGE)
 train_loader_tt_split = DataLoader(dataset_train_tt_split, batch_size=8,
-                                   num_workers=0, pin_memory=True)
+                                   num_workers=20, pin_memory=True)
  
 dataset_val_tt_split = PersTecData_tt_split(data_type="dev",
                                             tokenizer=tokenizer, language = LANGUAGE)
 val_loader_tt_split = DataLoader(dataset_val_tt_split, batch_size=8,
-                                 num_workers=0, pin_memory=True)
+                                 num_workers=20, pin_memory=True)
 
 #Data visualization
-print(dataset_train_tt_split.input_ids[0])
-print(tokenizer.convert_ids_to_tokens(dataset_train_tt_split.input_ids[0]))
-label = dataset_train_tt_split.y[0]
+print(dataset_val_tt_split.input_ids[0])
+print(tokenizer.convert_ids_to_tokens(dataset_val_tt_split.input_ids[0]))
+label = dataset_val_tt_split.y[0]
 print(label)
 print(my_binarizer_task1.inverse_transform(label.reshape(1, -1)))
 
@@ -282,7 +293,6 @@ model = PLMClassifier_tt_split(classification_model)
 
 #Log of the training
 run_name = model_name + '_' + LANGUAGE + '_' + str(EPOCHS)
-logger = WandbLogger()
 checkpoint_callback = ModelCheckpoint(
     dirpath='../lightning_logs',
     filename= run_name)
@@ -296,9 +306,9 @@ wandb.init(
       config={
       "epochs": EPOCHS
       })
+logger = WandbLogger()
 
-
-trainer1 = pl.Trainer(gpus = 1,max_epochs=EPOCHS, logger = logger, callbacks=[checkpoint_callback])
+trainer1 = pl.Trainer(accelerator = 'gpu', devices = [2],max_epochs=EPOCHS, logger = logger, callbacks=[checkpoint_callback])
 
 trainer1.fit(model, train_loader_tt_split, 
              val_loader_tt_split)
@@ -310,7 +320,7 @@ def test_classifier(model, data_loader, thresholds):
     model.eval()
     result = {}
     for i, batch in enumerate(data_loader):
-      batch_ids, batch_mask, article, line = batch
+      batch_ids, batch_mask, _, article, line = batch
       preds = model(batch_ids.cuda(), batch_mask.cuda())
       for threshold in thresholds:
         predictions = torch.greater(preds,
@@ -334,7 +344,7 @@ for b,c in zip(result.keys(),result.values()):
 
 my_df = pd.DataFrame(my_list, columns= ['Article_id','Line_id','Techniques'])
 
-my_df.to_csv(run_name + '_output.txt',header=None, index=None, sep='\t')
+my_df.to_csv('../lightning_logs/' + run_name + '_output.txt',header=None, index=None, sep='\t')
 """ #Test
 
 for a,b in zip(result.keys(),result.values()):

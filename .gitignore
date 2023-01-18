@@ -1,2 +1,5 @@
 semeval2023task3bundle-v2/
 __pycache__/
+semeval2023task3bundle-v3/
+lightning_logs/
+wandb/
