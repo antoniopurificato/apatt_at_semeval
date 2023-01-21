@@ -296,11 +296,11 @@ if LANGUAGE == 'en':
     albert = AutoModelForSequenceClassification.from_pretrained(
     "albert-base-v2", num_labels=NUM_LABELS)
 
-    #model_bert = PLMClassifier_tt_split.load_from_checkpoint('../lightning_logs/Bert_10-v1.ckpt', plm = bert).to(device)
-    #model_roberta = PLMClassifier_tt_split.load_from_checkpoint('../lightning_logs/RoBERTa_10-v1.ckpt', plm = roberta).to(device)
-    #model_xlnet = PLMClassifier_tt_split.load_from_checkpoint('../lightning_logs/XLNet_10-v1.ckpt', plm = xlnet).to(device)
-    #model_deberta = PLMClassifier_tt_split.load_from_checkpoint('../lightning_logs/DeBERTa_10-v1.ckpt', plm = deberta).to(device)
-    #model_albert = PLMClassifier_tt_split.load_from_checkpoint('../lightning_logs/alBERT_10-v1.ckpt', plm = albert).to(device)
+    model_bert = PLMClassifier_tt_split.load_from_checkpoint('../lightning_logs/Bert_{}_10-v1.ckpt'.format(LANGUAGE), plm = bert).to(device)
+    model_roberta = PLMClassifier_tt_split.load_from_checkpoint('../lightning_logs/RoBERTa_{}_10-v1.ckpt'.format(LANGUAGE), plm = roberta).to(device)
+    model_xlnet = PLMClassifier_tt_split.load_from_checkpoint('../lightning_logs/XLNet_{}_10-v1.ckpt'.format(LANGUAGE), plm = xlnet).to(device)
+    model_deberta = PLMClassifier_tt_split.load_from_checkpoint('../lightning_logs/DeBERTa_{}_10-v1.ckpt'.format(LANGUAGE), plm = deberta).to(device)
+    model_albert = PLMClassifier_tt_split.load_from_checkpoint('../lightning_logs/_{}_10-v1.ckpt'.format(LANGUAGE), plm = albert).to(device)
     ensemble = EnsembleClassifier(
     [model_bert, model_roberta, model_xlnet, model_deberta, model_albert])
 
@@ -316,7 +316,7 @@ if LANGUAGE == 'it':
 
     classification_model = AutoModelForSequenceClassification.from_pretrained(
     "dbmdz/bert-base-italian-xxl-cased", num_labels=NUM_LABELS)
-    model = PLMClassifier_tt_split.load_from_checkpoint('../lightning_logs/Bert_it_10-v0.ckpt', plm = classification_model).to(device)
+    model = PLMClassifier_tt_split.load_from_checkpoint('../lightning_logs/Bert_{}_10-v1.ckpt'.format(LANGUAGE), plm = classification_model).to(device)
     ensemble = EnsembleClassifier([model])
     
 if LANGUAGE == 'ru':
@@ -346,8 +346,8 @@ if LANGUAGE == 'ru':
     roberta = AutoModelForSequenceClassification.from_pretrained(
     "blinoff/roberta-base-russian-v0", num_labels=NUM_LABELS)
 
-    model_bert = PLMClassifier_tt_split.load_from_checkpoint('../lightning_logs/Bert_ru_10-v0.ckpt', plm = bert).to(device)
-    model_roberta = PLMClassifier_tt_split.load_from_checkpoint('../lightning_logs/RoBERTa_ru_10-v0.ckpt', plm = roberta).to(device)
+    model_bert = PLMClassifier_tt_split.load_from_checkpoint('../lightning_logs/Bert_{}_10-v1.ckpt'.format(LANGUAGE), plm = bert).to(device)
+    model_roberta = PLMClassifier_tt_split.load_from_checkpoint('../lightning_logs/RoBERTa_{}_10-v1.ckpt'.format(LANGUAGE), plm = roberta).to(device)
     ensemble = EnsembleClassifier([model_bert, model_roberta])
 
 if LANGUAGE == 'po':
@@ -376,8 +376,8 @@ if LANGUAGE == 'po':
     roberta = AutoModelForSequenceClassification.from_pretrained(
         "sdadas/polish-roberta-large-v2", num_labels=NUM_LABELS)
 
-    model_bert = PLMClassifier_tt_split.load_from_checkpoint('../lightning_logs/Bert_po_10-v0.ckpt', plm = bert).to(device)
-    model_roberta = PLMClassifier_tt_split.load_from_checkpoint('../lightning_logs/RoBERTa_po_10-v0.ckpt', plm = roberta).to(device)
+    model_bert = PLMClassifier_tt_split.load_from_checkpoint('../lightning_logs/Bert_{}_10-v1.ckpt'.format(LANGUAGE), plm = bert).to(device)
+    model_roberta = PLMClassifier_tt_split.load_from_checkpoint('../lightning_logs/RoBERTa_{}_10-v1.ckpt'.format(LANGUAGE), plm = roberta).to(device)
     ensemble = EnsembleClassifier([model_bert, model_roberta])
 
 if LANGUAGE == 'fr':
@@ -388,7 +388,7 @@ if LANGUAGE == 'fr':
 
     classification_model = AutoModelForSequenceClassification.from_pretrained(
     "dbmdz/bert-base-french-europeana-cased", num_labels=NUM_LABELS)
-    model = PLMClassifier_tt_split.load_from_checkpoint('../lightning_logs/Bert_fr_10-v0.ckpt', plm = classification_model).to(device)
+    model = PLMClassifier_tt_split.load_from_checkpoint('../lightning_logs/Bert_{}_10-v1.ckpt'.format(LANGUAGE), plm = classification_model).to(device)
     ensemble = EnsembleClassifier([model])
 
 if LANGUAGE == 'ge':
@@ -399,7 +399,7 @@ if LANGUAGE == 'ge':
 
     classification_model = AutoModelForSequenceClassification.from_pretrained(
     "bert-base-german-cased", num_labels=NUM_LABELS)
-    model = PLMClassifier_tt_split.load_from_checkpoint('../lightning_logs/Bert_ge_10-v0.ckpt', plm = classification_model).to(device)
+    model = PLMClassifier_tt_split.load_from_checkpoint('../lightning_logs/Bert_{}_10-v1.ckpt'.format(LANGUAGE), plm = classification_model).to(device)
     ensemble = EnsembleClassifier([model])
 
 
@@ -409,8 +409,8 @@ def test_classifier_ensemble(model, data_loader, thresholds):
     true_labels = []
     result = {}
     for i, batch in tqdm(enumerate(data_loader)):
-      batch_ids, batch_mask, _, article, line = batch
-      preds = model(boh).detach()
+      batch_ids, article, line = batch
+      preds = model(batch_ids).detach()
       for threshold in thresholds:
         predictions = torch.greater(preds.cuda(),
                                       torch.ones(preds.shape).cuda() * threshold)
@@ -433,4 +433,4 @@ with open('../lightning_logs/{}_dictionary.pkl'.format(run_name), 'wb') as f:
 
 my_df = pd.DataFrame(my_list, columns= ['Article_id','Line_id','Techniques'])
 
-my_df.to_csv(run_name + '_output.txt',header=None, index=None, sep='\t')
+my_df.to_csv('../lightning_logs/' + run_name + '_output.txt',header=None, index=None, sep='\t')
