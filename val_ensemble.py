@@ -13,8 +13,8 @@ from tqdm import tqdm
 import pandas as pd
 from torch.utils.data import DataLoader
 
-
-PATH = '/home/antpur/projects/apatt_at_semeval/semeval2023task3bundle-v3'
+os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+PATH = '/home/antpur/projects/apatt_at_semeval/semeval2023task3bundle-v4'
 os.chdir(PATH)
 parser = argparse.ArgumentParser()
 parser.add_argument('--epochs', type=int, help='Number of epochs')
@@ -29,7 +29,7 @@ os.environ['WANDB_MODE'] = args.mode
 NUM_LABELS = 23
 torch.manual_seed(21)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-run_name = LANGUAGE + '_ensemble'
+run_name = LANGUAGE + '_ensemble_' + str(EPOCHS)
 
 def tuple_to_list(my_tuple):
   my_list = []
@@ -43,7 +43,7 @@ def tuple_to_list(my_tuple):
 def set_folder(data_type, language= 'en'):
   if data_type == 'train':
     input_folder = 'data/{}/train-articles-subtask-3/'.format(language)
-    labels_folder =  'data/{}/train-labels-subtask-3.txt'.format(language)
+    labels_folder = 'data/{}/train-labels-subtask-3.txt'.format(language)
   if data_type == 'dev':
     input_folder = 'data/{}/dev-articles-subtask-3/'.format(language)
     labels_folder = 'data/{}/dev-labels-subtask-3.txt'.format(language)
@@ -78,7 +78,6 @@ def make_dataframe(data_type = 'train', language = 'en'):
         labels = labels.fillna('')
         #JOIN
         df = labels.join(df_text)[['text','labels']]
-
     return df.reset_index()
 
 def load_data_tt_split(data_type = 'train', language = 'en'):
@@ -98,6 +97,15 @@ def load_data_tt_split(data_type = 'train', language = 'en'):
     if data_type == 'test':
       return all_idxs, all_lines, all_data#, torch.tensor(all_labels)
 
+my_binarizer_task1 = MultiLabelBinarizer()
+classes_file = "scorers/techniques_subtask3.txt"
+labels_name1 = []
+with open(classes_file, "r") as f:
+    for line in f.readlines():
+        labels_name1.append(line.rstrip())
+#labels_name1.pop(-1)
+labels_name1.sort()  # MultiLabelBinarizer sorts the labels
+my_binarizer_task1.fit([labels_name1]);
 
 class PersTecData_tt_split(torch.utils.data.Dataset):
     def __init__(self, data_type="train", tokenizer=None, language = 'en'):
@@ -184,16 +192,6 @@ class PLMClassifier_tt_split(pl.LightningModule):
             optimizer=optimizer, lr_scheduler=dict(scheduler=scheduler, interval="step")
         )
 
-my_binarizer_task1 = MultiLabelBinarizer()
-classes_file = "scorers/techniques_subtask3.txt"
-labels_name1 = []
-with open(classes_file, "r") as f:
-    for line in f.readlines():
-        labels_name1.append(line.rstrip())
-#labels_name1.pop(-1)
-labels_name1.sort()  # MultiLabelBinarizer sorts the labels
-my_binarizer_task1.fit([labels_name1]);
-
 
 # Dataset class for ensembles of models
 class PersTecDataEnsemble(torch.utils.data.Dataset):
@@ -245,8 +243,11 @@ class EnsembleClassifier(pl.LightningModule):
             x = model(samples, masks)
             preds.append(x)
         preds = torch.stack(preds)
+        #print("PREDS: ",preds[3]) #sono da 0 a 3 e devo cercare di pesare
+        #print(preds.shape,type(preds))
         pred = torch.mean(preds, axis=0)
-        return pred
+        #print("PRED: ",pred.shape)
+        return pred #preds
 
 
 
@@ -256,33 +257,43 @@ if LANGUAGE == 'en':
     train_loader_bert = DataLoader(dataset_train_bert, batch_size=8,num_workers=0, pin_memory=True)
     dataset_val_bert = PersTecData_tt_split(data_type="dev",tokenizer=tokenizer_bert, language = LANGUAGE)
     val_loader_tt_split = DataLoader(dataset_val_bert, batch_size=8,num_workers=0, pin_memory=True)
+    dataset_test_bert = PersTecData_tt_split(data_type="test", tokenizer=tokenizer_bert, language=LANGUAGE)
+    test_loader_bert = DataLoader(dataset_test_bert, batch_size=8, num_workers=2, pin_memory=True)
     
     tokenizer_roberta = AutoTokenizer.from_pretrained("roberta-base", use_fast=True)
     dataset_train_RoBERTa = PersTecData_tt_split(data_type="train", tokenizer=tokenizer_roberta, language=LANGUAGE)
     train_loader_RoBERTa = DataLoader(dataset_train_RoBERTa, batch_size=8, num_workers=2, pin_memory=True)
     dataset_val_RoBERTa = PersTecData_tt_split(data_type="dev", tokenizer=tokenizer_roberta, language=LANGUAGE)
     val_loader_RoBERTa = DataLoader(dataset_val_RoBERTa, batch_size=8, num_workers=2, pin_memory=True)
+    dataset_test_RoBERTa = PersTecData_tt_split(data_type="test", tokenizer=tokenizer_roberta, language=LANGUAGE)
+    test_loader_RoBERTa = DataLoader(dataset_test_RoBERTa, batch_size=8, num_workers=2, pin_memory=True)
 
     tokenizer_xlnet = AutoTokenizer.from_pretrained("xlnet-base-cased", use_fast=True)
     dataset_train_xlnet = PersTecData_tt_split(data_type="train", tokenizer=tokenizer_xlnet, language=LANGUAGE)
     train_loader_xlnet = DataLoader(dataset_train_xlnet, batch_size=8, num_workers=2, pin_memory=True)
     dataset_val_xlnet = PersTecData_tt_split(data_type="dev", tokenizer=tokenizer_xlnet, language=LANGUAGE)
     val_loader_xlnet = DataLoader(dataset_val_xlnet, batch_size=8, num_workers=2, pin_memory=True)
+    dataset_test_xlnet = PersTecData_tt_split(data_type="test", tokenizer=tokenizer_xlnet, language=LANGUAGE)
+    test_loader_xlnet = DataLoader(dataset_test_xlnet, batch_size=8, num_workers=2, pin_memory=True)
 
     tokenizer_deberta = AutoTokenizer.from_pretrained("microsoft/deberta-base", use_fast=True)
     dataset_train_deberta = PersTecData_tt_split(data_type="train", tokenizer=tokenizer_deberta, language=LANGUAGE)
     train_loader_deberta = DataLoader(dataset_train_deberta, batch_size=8, num_workers=2, pin_memory=True)
     dataset_val_deberta = PersTecData_tt_split(data_type="dev", tokenizer=tokenizer_deberta, language=LANGUAGE)
     val_loader_deberta = DataLoader(dataset_val_deberta, batch_size=8, num_workers=2, pin_memory=True)
+    dataset_test_deberta = PersTecData_tt_split(data_type="test", tokenizer=tokenizer_deberta, language=LANGUAGE)
+    test_loader_deberta = DataLoader(dataset_test_deberta, batch_size=8, num_workers=2, pin_memory=True)
 
     tokenizer_albert = AutoTokenizer.from_pretrained("albert-base-v2", use_fast=True)
     dataset_train_albert = PersTecData_tt_split(data_type="train", tokenizer=tokenizer_albert, language=LANGUAGE)
     train_loader_albert = DataLoader(dataset_train_albert, batch_size=8, num_workers=2, pin_memory=True)
     dataset_val_albert = PersTecData_tt_split(data_type="dev", tokenizer=tokenizer_albert, language=LANGUAGE)
     val_loader_albert = DataLoader(dataset_val_albert, batch_size=8, num_workers=2, pin_memory=True)
+    dataset_test_albert = PersTecData_tt_split(data_type="test", tokenizer=tokenizer_albert, language=LANGUAGE)
+    test_loader_albert = DataLoader(dataset_test_albert, batch_size=8, num_workers=2, pin_memory=True)
     
     dataset_val1_ensemble = PersTecDataEnsemble(data_type="dev",
-        tokenizers=[tokenizer_bert, tokenizer_roberta, tokenizer_albert, tokenizer_deberta, tokenizer_xlnet])
+        tokenizers=[tokenizer_bert, tokenizer_roberta, tokenizer_xlnet, tokenizer_deberta, tokenizer_albert])
     val_loader_ensemble = DataLoader(dataset_val1_ensemble, batch_size=8, num_workers=2, pin_memory=True)
 
     bert = AutoModelForSequenceClassification.from_pretrained(
@@ -300,7 +311,7 @@ if LANGUAGE == 'en':
     model_roberta = PLMClassifier_tt_split.load_from_checkpoint('../lightning_logs/RoBERTa_{}_10-v1.ckpt'.format(LANGUAGE), plm = roberta).to(device)
     model_xlnet = PLMClassifier_tt_split.load_from_checkpoint('../lightning_logs/XLNet_{}_10-v1.ckpt'.format(LANGUAGE), plm = xlnet).to(device)
     model_deberta = PLMClassifier_tt_split.load_from_checkpoint('../lightning_logs/DeBERTa_{}_10-v1.ckpt'.format(LANGUAGE), plm = deberta).to(device)
-    model_albert = PLMClassifier_tt_split.load_from_checkpoint('../lightning_logs/_{}_10-v1.ckpt'.format(LANGUAGE), plm = albert).to(device)
+    model_albert = PLMClassifier_tt_split.load_from_checkpoint('../lightning_logs/alBERT_{}_10-v1.ckpt'.format(LANGUAGE), plm = albert).to(device)
     ensemble = EnsembleClassifier(
     [model_bert, model_roberta, model_xlnet, model_deberta, model_albert])
 
@@ -325,17 +336,16 @@ if LANGUAGE == 'ru':
     train_loader_bert = DataLoader(dataset_train_bert, batch_size=8,num_workers=0, pin_memory=True)
     dataset_val_bert = PersTecData_tt_split(data_type="dev",tokenizer=tokenizer_bert, language = LANGUAGE)
     val_loader_tt_split = DataLoader(dataset_val_bert, batch_size=8,num_workers=0, pin_memory=True)
-    #dataset_test_bert = PersTecData_tt_split(data_type="test",tokenizer=tokenizer_bert, language = LANGUAGE)
-    #test_loader_tt_split = DataLoader(dataset_test_bert, batch_size=8,num_workers=0, pin_memory=True)
+    dataset_test_bert = PersTecData_tt_split(data_type="test",tokenizer=tokenizer_bert, language = LANGUAGE)
+    test_loader_tt_split = DataLoader(dataset_test_bert, batch_size=8,num_workers=0, pin_memory=True)
     
     tokenizer_roberta = AutoTokenizer.from_pretrained("blinoff/roberta-base-russian-v0", use_fast=True)
-    tokenizer_roberta = AutoTokenizer.from_pretrained("roberta-base", use_fast=True)
     dataset_train_RoBERTa = PersTecData_tt_split(data_type="train", tokenizer=tokenizer_roberta, language=LANGUAGE)
     train_loader_RoBERTa = DataLoader(dataset_train_RoBERTa, batch_size=8, num_workers=2, pin_memory=True)
     dataset_val_RoBERTa = PersTecData_tt_split(data_type="dev", tokenizer=tokenizer_roberta, language=LANGUAGE)
     val_loader_RoBERTa = DataLoader(dataset_val_RoBERTa, batch_size=8, num_workers=2, pin_memory=True)
-    #dataset_test_RoBERTa = PersTecData_tt_split(data_type="test", tokenizer=tokenizer_roberta, language=LANGUAGE)
-    #test_loader_RoBERTa = DataLoader(dataset_test_RoBERTa, batch_size=8, num_workers=2, pin_memory=True)
+    dataset_test_RoBERTa = PersTecData_tt_split(data_type="test", tokenizer=tokenizer_roberta, language=LANGUAGE)
+    test_loader_RoBERTa = DataLoader(dataset_test_RoBERTa, batch_size=8, num_workers=2, pin_memory=True)
 
 
     dataset_val1_ensemble = PersTecDataEnsemble(data_type="dev",tokenizers=[tokenizer_bert, tokenizer_roberta])
@@ -360,7 +370,6 @@ if LANGUAGE == 'po':
     test_loader_tt_split = DataLoader(dataset_test_bert, batch_size=8,num_workers=0, pin_memory=True)
     
     tokenizer_roberta = AutoTokenizer.from_pretrained("sdadas/polish-roberta-large-v2", use_fast=True)
-    tokenizer_roberta = AutoTokenizer.from_pretrained("roberta-base", use_fast=True)
     dataset_train_RoBERTa = PersTecData_tt_split(data_type="train", tokenizer=tokenizer_roberta, language=LANGUAGE)
     train_loader_RoBERTa = DataLoader(dataset_train_RoBERTa, batch_size=8, num_workers=2, pin_memory=True)
     dataset_val_RoBERTa = PersTecData_tt_split(data_type="dev", tokenizer=tokenizer_roberta, language=LANGUAGE)
@@ -381,15 +390,37 @@ if LANGUAGE == 'po':
     ensemble = EnsembleClassifier([model_bert, model_roberta])
 
 if LANGUAGE == 'fr':
-    tokenizer = AutoTokenizer.from_pretrained("dbmdz/bert-base-french-europeana-cased", use_fast=True)
+    tokenizer_bert = AutoTokenizer.from_pretrained("dbmdz/bert-base-french-europeana-cased", use_fast=True)
+    dataset_train_bert = PersTecData_tt_split(data_type="train",tokenizer=tokenizer_bert, language = LANGUAGE)
+    train_loader_bert = DataLoader(dataset_train_bert, batch_size=8,num_workers=0, pin_memory=True)
+    dataset_val_bert = PersTecData_tt_split(data_type="dev",tokenizer=tokenizer_bert, language = LANGUAGE)
+    val_loader_tt_split = DataLoader(dataset_val_bert, batch_size=8,num_workers=0, pin_memory=True)
+    dataset_test_bert = PersTecData_tt_split(data_type="test",tokenizer=tokenizer_bert, language = LANGUAGE)
+    test_loader_tt_split = DataLoader(dataset_test_bert, batch_size=8,num_workers=0, pin_memory=True)
+    
+    tokenizer_roberta = AutoTokenizer.from_pretrained("ClassCat/roberta-base-french", use_fast=True)
+    dataset_train_RoBERTa = PersTecData_tt_split(data_type="train", tokenizer=tokenizer_roberta, language=LANGUAGE)
+    train_loader_RoBERTa = DataLoader(dataset_train_RoBERTa, batch_size=8, num_workers=2, pin_memory=True)
+    dataset_val_RoBERTa = PersTecData_tt_split(data_type="dev", tokenizer=tokenizer_roberta, language=LANGUAGE)
+    val_loader_RoBERTa = DataLoader(dataset_val_RoBERTa, batch_size=8, num_workers=2, pin_memory=True)
+    dataset_test_RoBERTa = PersTecData_tt_split(data_type="test", tokenizer=tokenizer_roberta, language=LANGUAGE)
+    test_loader_RoBERTa = DataLoader(dataset_test_RoBERTa, batch_size=8, num_workers=2, pin_memory=True)
 
-    dataset_val1_ensemble = PersTecDataEnsemble(data_type="dev",tokenizers=[tokenizer_bert])
+    dataset_val1_ensemble = PersTecDataEnsemble(data_type="dev",tokenizers=[tokenizer_bert, tokenizer_roberta])
     val_loader_ensemble = DataLoader(dataset_val1_ensemble, batch_size=8, num_workers=2, pin_memory=True)
+    #dataset_test1_ensemble = PersTecDataEnsemble(data_type="test",tokenizers=[tokenizer_bert])
+    #test_loader_ensemble = DataLoader(dataset_test1_ensemble, batch_size=8, num_workers=2, pin_memory=True)
 
-    classification_model = AutoModelForSequenceClassification.from_pretrained(
+    bert = AutoModelForSequenceClassification.from_pretrained(
     "dbmdz/bert-base-french-europeana-cased", num_labels=NUM_LABELS)
-    model = PLMClassifier_tt_split.load_from_checkpoint('../lightning_logs/Bert_{}_10-v1.ckpt'.format(LANGUAGE), plm = classification_model).to(device)
-    ensemble = EnsembleClassifier([model])
+    roberta = AutoModelForSequenceClassification.from_pretrained(
+    "ClassCat/roberta-base-french", num_labels=NUM_LABELS)
+    model_bert = PLMClassifier_tt_split.load_from_checkpoint('../lightning_logs/Bert_{}_10-v1.ckpt'.format(LANGUAGE), plm = bert).to(device)
+    #ensemble = EnsembleClassifier([model_bert, model_roberta])
+
+    #model_bert = PLMClassifier_tt_split.load_from_checkpoint('../lightning_logs/Bert_{}_10-v1.ckpt'.format(LANGUAGE), plm = roberta).to(device)
+    model_roberta = PLMClassifier_tt_split.load_from_checkpoint('../lightning_logs/test/Bert_{}_9.ckpt'.format(LANGUAGE), plm = roberta).to(device)
+    ensemble = EnsembleClassifier([model_bert, model_roberta])
 
 if LANGUAGE == 'ge':
     tokenizer = AutoTokenizer.from_pretrained("bert-base-german-cased", use_fast=True)
@@ -401,7 +432,6 @@ if LANGUAGE == 'ge':
     "bert-base-german-cased", num_labels=NUM_LABELS)
     model = PLMClassifier_tt_split.load_from_checkpoint('../lightning_logs/Bert_{}_10-v1.ckpt'.format(LANGUAGE), plm = classification_model).to(device)
     ensemble = EnsembleClassifier([model])
-
 
 def test_classifier_ensemble(model, data_loader, thresholds):
     model.cuda()

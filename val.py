@@ -11,7 +11,6 @@ import argparse
 os.environ["TOKENIZERS_PARALLELISM"] = 'false'
 
 from sklearn.preprocessing import MultiLabelBinarizer
-from sklearn.metrics import f1_score
 import torch
 import numpy as np
 
@@ -23,7 +22,6 @@ from torch.utils.data import DataLoader
 import wandb
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
-from sklearn.model_selection import train_test_split
 
 #Parser
 parser = argparse.ArgumentParser()
@@ -32,6 +30,7 @@ parser.add_argument('--epochs', type=int, help='Number of epochs')
 parser.add_argument('--language', type=str, help='Language')
 parser.add_argument('--threshold', type=float, help='Value of the threshold')
 parser.add_argument('--mode', type=str, help='online or offline')
+parser.add_argument('--save', type=str, choices = ['True','False'], default = 'False', help='Save or not the model')
 args = parser.parse_args()
 model_name = args.models
 EPOCHS = args.epochs
@@ -41,7 +40,7 @@ os.environ['WANDB_MODE'] = args.mode
 
 
 #Useful settings
-PATH = '/home/antpur/projects/apatt_at_semeval/semeval2023task3bundle-v3/'
+PATH = '/home/antpur/projects/apatt_at_semeval/semeval2023task3bundle-v4/'
 os.chdir(PATH)
 wandb.login(key = '88987d90526e97d3144c1c3c7ff85ae9b3ea37ad')
 torch.manual_seed(21)
@@ -68,6 +67,7 @@ def set_folder(data_type, language= 'en'):
     labels_folder = 'data/{}/dev-labels-subtask-3.txt'.format(language)
   if data_type == 'test':
     input_folder = 'data/{}/test-articles-subtask-3/'.format(language)
+    labels_folder = None
   return input_folder,labels_folder
 
 def make_dataframe(data_type = 'train', language = 'en'):
@@ -233,9 +233,9 @@ if model_name == 'Bert':
     classification_model = AutoModelForSequenceClassification.from_pretrained(
     "dkleczek/bert-base-polish-uncased-v1", num_labels=NUM_LABELS)
   if LANGUAGE == 'fr':
-    tokenizer = AutoTokenizer.from_pretrained("dbmdz/bert-base-french-europeana-cased", use_fast=True)
+    tokenizer = AutoTokenizer.from_pretrained("flaubert/flaubert_base_uncased", use_fast=True)
     classification_model = AutoModelForSequenceClassification.from_pretrained(
-    "dbmdz/bert-base-french-europeana-cased", num_labels=NUM_LABELS)
+    "flaubert/flaubert_base_uncased", num_labels=NUM_LABELS)
   if LANGUAGE == 'ge':
     tokenizer = AutoTokenizer.from_pretrained("bert-base-german-cased", use_fast=True)
     classification_model = AutoModelForSequenceClassification.from_pretrained(
@@ -252,8 +252,7 @@ if model_name == 'RoBERTa':
   if LANGUAGE == 'ru':
     tokenizer = AutoTokenizer.from_pretrained("blinoff/roberta-base-russian-v0", use_fast=True)
     classification_model = AutoModelForSequenceClassification.from_pretrained(
-    "blinoff/roberta-base-russian-v0", num_labels=NUM_LABELS)
-    
+    "blinoff/roberta-base-russian-v0", num_labels=NUM_LABELS) 
 if model_name == 'XLNet':
   if LANGUAGE == 'en':
     tokenizer = AutoTokenizer.from_pretrained("xlnet-base-cased", use_fast=True)
@@ -280,10 +279,10 @@ dataset_val_tt_split = PersTecData_tt_split(data_type="dev",
 val_loader_tt_split = DataLoader(dataset_val_tt_split, batch_size=8,
                                  num_workers=20, pin_memory=True)
 
-#dataset_test_tt_split = PersTecData_tt_split(data_type="test",
-#                                            tokenizer=tokenizer, language = LANGUAGE)
-#test_loader_tt_split = DataLoader(dataset_test_tt_split, batch_size=8,
-#                                 num_workers=20, pin_memory=True)
+dataset_test_tt_split = PersTecData_tt_split(data_type="test",
+                                            tokenizer=tokenizer, language = LANGUAGE)
+test_loader_tt_split = DataLoader(dataset_test_tt_split, batch_size=8,
+                                 num_workers=20, pin_memory=True)
 
 #Data visualization
 print(dataset_val_tt_split.input_ids[5])
@@ -300,9 +299,10 @@ model = PLMClassifier_tt_split(classification_model)
 
 #Log of the training
 run_name = model_name + '_' + LANGUAGE + '_' + str(EPOCHS)
-checkpoint_callback = ModelCheckpoint(
-    dirpath='../lightning_logs',
-    filename= run_name)
+if args.save == 'True':
+  checkpoint_callback = ModelCheckpoint(
+      dirpath='../lightning_logs/test',
+      filename= run_name)
 
 wandb.init(
       # Set the project where this run will be logged
@@ -314,11 +314,13 @@ wandb.init(
       "epochs": EPOCHS
       })
 logger = WandbLogger()
-
-trainer1 = pl.Trainer(accelerator = 'gpu', devices = [2],max_epochs=EPOCHS, logger = logger, callbacks=[checkpoint_callback])
+if args.save == 'True':
+  trainer1 = pl.Trainer(accelerator = 'gpu', devices = [1],max_epochs=EPOCHS, logger = logger, callbacks=[checkpoint_callback])
+else:
+  trainer1 = pl.Trainer(accelerator = 'gpu', devices = [1],max_epochs=EPOCHS, logger = logger)
 
 trainer1.fit(model, train_loader_tt_split, 
-             val_loader_tt_split) #test_loader_tt_split
+             val_loader_tt_split)#, test_loader_tt_split)
 wandb.finish()
 
 #Test
@@ -327,7 +329,7 @@ def test_classifier(model, data_loader, thresholds):
     model.eval()
     result = {}
     for i, batch in enumerate(data_loader):
-      batch_ids, batch_mask, _, article, line = batch
+      batch_ids, batch_mask, article, line = batch
       preds = model(batch_ids.cuda(), batch_mask.cuda())
       for threshold in thresholds:
         predictions = torch.greater(preds,
@@ -337,39 +339,18 @@ def test_classifier(model, data_loader, thresholds):
              my_binarizer_task1.inverse_transform(predictions.cpu())):
           result.update({(article_number,line_number,threshold):output})
     return result
+if args.save == 'True':
+  thresholds = [x / 10 for x in range(0, 11)]
+  result = test_classifier(model, test_loader_tt_split, thresholds) #test_loader_tt_split
 
-thresholds = [x / 10 for x in range(0, 11)]
-result = test_classifier(model, val_loader_tt_split, thresholds) #test_loader_tt_split
+  with open('../lightning_logs/test/{}_dictionary.pkl'.format(run_name), 'wb') as f:
+      pickle.dump(result, f)
 
-with open('../lightning_logs/{}_dictionary.pkl'.format(run_name), 'wb') as f:
-    pickle.dump(result, f)
+  my_list = []
+  for b,c in zip(result.keys(),result.values()):
+    if b[2] == THRESHOLD:
+      my_list.append([b[0],b[1],tuple_to_list(c)])
 
-my_list = []
-for b,c in zip(result.keys(),result.values()):
-  if b[2] == THRESHOLD:
-    my_list.append([b[0],b[1],tuple_to_list(c)])
+  my_df = pd.DataFrame(my_list, columns= ['Article_id','Line_id','Techniques'])
 
-my_df = pd.DataFrame(my_list, columns= ['Article_id','Line_id','Techniques'])
-
-my_df.to_csv('../lightning_logs/' + run_name + '_output.txt',header=None, index=None, sep='\t')
-""" #Test
-
-for a,b in zip(result.keys(),result.values()):
-  if a[2] == 0.7:
-    print(a[0],a[1],b)
-
-my_list = []
-for b,c in zip(result.keys(),result.values()):
-  if b[2] == 0.6:
-    my_list.append([b[0],b[1],tuple_to_list(c)])
-
-my_df = pd.DataFrame(my_list, columns= ['Article_id','Line_id','Techniques'])
-
-my_df.to_csv(run_name + '_output.txt',header=None, index=None, sep='\t')
-
-#with open('../lightning_logs/{}_dictionary.pkl'.format(run_name), 'wb') as f:
-#    pickle.dump(result, f)
-
-#with open('../lightning_logs/{}_dictionary.pkl'.format(run_name), 'rb') as f:
-    #loaded_dict = pickle.load(f) """
-
+  my_df.to_csv('../lightning_logs/test/' + run_name + '_output.txt',header=None, index=None, sep='\t')
