@@ -1,0 +1,8 @@
+pandas==1.5.3
+tqdm==4.64.1
+scikit-learn==1.2.1
+--find-links https://download.pytorch.org/whl/torch_stable.html
+torch==1.13.1+cu117
+torchvision==0.14.1+cu117
+pytorch-lightning==1.8.6
+transformers==4.26.0

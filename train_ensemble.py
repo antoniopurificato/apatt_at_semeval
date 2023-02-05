@@ -1,7 +1,5 @@
 import torch
 import pytorch_lightning as pl
-import wandb
-from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
 from transformers import get_constant_schedule_with_warmup, AutoTokenizer, AutoModelForSequenceClassification
 import torch.nn as nn
@@ -13,7 +11,6 @@ from tqdm import tqdm
 import pandas as pd
 from torch.utils.data import DataLoader
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 PATH = '/home/antpur/projects/apatt_at_semeval/semeval2023task3bundle-v4'
 os.chdir(PATH)
 parser = argparse.ArgumentParser()
@@ -26,7 +23,6 @@ args = parser.parse_args()
 EPOCHS = args.epochs
 LANGUAGE = args.language
 THRESHOLD = args.threshold
-os.environ['WANDB_MODE'] = args.mode
 NUM_LABELS = 23
 torch.manual_seed(21)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -460,9 +456,6 @@ def test_classifier_ensemble(model, data_loader, thresholds):
     for i, batch in tqdm(enumerate(data_loader)):
       batch_ids, article, line = batch
       preds = model(batch_ids).detach()
-    #   for m in preds:
-    #     for c in m:
-    #         print(c.shape)
       for threshold in thresholds:
         predictions = torch.greater(preds.cuda(),
                                       torch.ones(preds.shape).cuda() * threshold)

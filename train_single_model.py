@@ -7,7 +7,6 @@ from os.path import isfile, join
 import pickle
 import argparse
 
-# os.environ["CUDA_VISIBLE_DEVICES"]="0"
 os.environ["TOKENIZERS_PARALLELISM"] = 'false'
 
 from sklearn.preprocessing import MultiLabelBinarizer
@@ -18,14 +17,11 @@ import pytorch_lightning as pl
 from transformers import get_constant_schedule_with_warmup, AutoTokenizer, AutoModelForSequenceClassification
 import torch.nn as nn
 from torch.utils.data import DataLoader
-
-import wandb
-from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
 
 #Parser
 parser = argparse.ArgumentParser()
-parser.add_argument('--models', type=str, choices = ["distilBERT","Bert", "RoBERTa", "XLNet","DeBERTa","alBERT"], help='Choice of the model')
+parser.add_argument('--models', type=str, choices = ["herBERT","distilBERT","Bert", "RoBERTa", "XLNet","DeBERTa","alBERT"], help='Choice of the model')
 parser.add_argument('--epochs', type=int, help='Number of epochs')
 parser.add_argument('--language', type=str, help='Language')
 parser.add_argument('--threshold', type=float, help='Value of the threshold')
@@ -36,13 +32,10 @@ model_name = args.models
 EPOCHS = args.epochs
 LANGUAGE = args.language
 THRESHOLD = args.threshold
-os.environ['WANDB_MODE'] = args.mode
-
 
 #Useful settings
 PATH = '/home/antpur/projects/apatt_at_semeval/semeval2023task3bundle-v4/'
 os.chdir(PATH)
-wandb.login(key = '88987d90526e97d3144c1c3c7ff85ae9b3ea37ad')
 torch.manual_seed(21)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -210,8 +203,15 @@ class PLMClassifier_tt_split(pl.LightningModule):
             optimizer=optimizer, lr_scheduler=dict(scheduler=scheduler, interval="step")
         )
 
-
+if model_name == 'herBERT':
+  tokenizer = AutoTokenizer.from_pretrained("allegro/herbert-large-cased", use_fast=True)
+  classification_model = AutoModelForSequenceClassification.from_pretrained(
+  "allegro/herbert-large-cased", num_labels=NUM_LABELS)
 if model_name == 'distilBERT':
+  if LANGUAGE == 'ge':
+    tokenizer = AutoTokenizer.from_pretrained("distilbert-base-german-cased", use_fast=True)
+    classification_model = AutoModelForSequenceClassification.from_pretrained(
+    "distilbert-base-german-cased", num_labels=NUM_LABELS)
   if LANGUAGE == 'it':
     tokenizer = AutoTokenizer.from_pretrained("indigo-ai/BERTino", use_fast=True)
     classification_model = AutoModelForSequenceClassification.from_pretrained(
@@ -220,19 +220,11 @@ if model_name == 'distilBERT':
     tokenizer = AutoTokenizer.from_pretrained("Geotrend/distilbert-base-pl-cased", use_fast=True)
     classification_model = AutoModelForSequenceClassification.from_pretrained(
     "Geotrend/distilbert-base-pl-cased", num_labels=NUM_LABELS)
-  if LANGUAGE == 'ge':
-    tokenizer = AutoTokenizer.from_pretrained("distilbert-base-german-cased", use_fast=True)
-    classification_model = AutoModelForSequenceClassification.from_pretrained(
-    "distilbert-base-german-cased", num_labels=NUM_LABELS)
-  if LANGUAGE == 'ru':
-    tokenizer = AutoTokenizer.from_pretrained("DeepPavlov/distilrubert-tiny-cased-conversational", use_fast=True)
-    classification_model = AutoModelForSequenceClassification.from_pretrained(
-    "DeepPavlov/distilrubert-tiny-cased-conversational", num_labels=NUM_LABELS)
 if model_name == 'Bert':
   if LANGUAGE == 'en':
-    tokenizer = AutoTokenizer.from_pretrained("bert-large-uncased", use_fast=True)
+    tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased", use_fast=True)
     classification_model = AutoModelForSequenceClassification.from_pretrained(
-    "bert-large-uncased", num_labels=NUM_LABELS)
+    "bert-base-uncased", num_labels=NUM_LABELS)
   if LANGUAGE == 'it':
     tokenizer = AutoTokenizer.from_pretrained("dbmdz/bert-base-italian-xxl-cased", use_fast=True)
     classification_model = AutoModelForSequenceClassification.from_pretrained(
@@ -242,49 +234,49 @@ if model_name == 'Bert':
     classification_model = AutoModelForSequenceClassification.from_pretrained(
     "sberbank-ai/ruBert-large", num_labels=NUM_LABELS)
   if LANGUAGE == 'po':
-    tokenizer = AutoTokenizer.from_pretrained("allegro/herbert-large-cased", use_fast=True)
+    tokenizer = AutoTokenizer.from_pretrained("dkleczek/bert-base-polish-uncased-v1", use_fast=True)
     classification_model = AutoModelForSequenceClassification.from_pretrained(
-    "allegro/herbert-large-cased", num_labels=NUM_LABELS)
-  if LANGUAGE == 'fr':
-    tokenizer = AutoTokenizer.from_pretrained("flaubert/flaubert_base_uncased", use_fast=True)
-    classification_model = AutoModelForSequenceClassification.from_pretrained(
-    "flaubert/flaubert_base_uncased", num_labels=NUM_LABELS)
-  if LANGUAGE == 'ge':
-    tokenizer = AutoTokenizer.from_pretrained("dbmdz/distilbert-base-german-europeana-cased", use_fast=True)
-    classification_model = AutoModelForSequenceClassification.from_pretrained(
-    "dbmdz/distilbert-base-german-europeana-cased", num_labels=NUM_LABELS)
-if model_name == 'RoBERTa':
+    "dkleczek/bert-base-polish-uncased-v1", num_labels=NUM_LABELS)
   if LANGUAGE == 'fr':
     tokenizer = AutoTokenizer.from_pretrained("ClassCat/roberta-base-french", use_fast=True)
     classification_model = AutoModelForSequenceClassification.from_pretrained(
     "ClassCat/roberta-base-french", num_labels=NUM_LABELS)
-  if LANGUAGE == 'en':
-    tokenizer = AutoTokenizer.from_pretrained("roberta-large", use_fast=True)
+  if LANGUAGE == 'ge':
+    tokenizer = AutoTokenizer.from_pretrained("bert-base-german-cased", use_fast=True)
     classification_model = AutoModelForSequenceClassification.from_pretrained(
-    "roberta-large", num_labels=NUM_LABELS)
+    "bert-base-german-cased", num_labels=NUM_LABELS)
+if model_name == 'RoBERTa':
+  if LANGUAGE == 'en':
+    tokenizer = AutoTokenizer.from_pretrained("roberta-base", use_fast=True)
+    classification_model = AutoModelForSequenceClassification.from_pretrained(
+    "roberta-base", num_labels=NUM_LABELS)
   if LANGUAGE == 'po':
     tokenizer = AutoTokenizer.from_pretrained("sdadas/polish-roberta-large-v2", use_fast=True)
     classification_model = AutoModelForSequenceClassification.from_pretrained(
     "sdadas/polish-roberta-large-v2", num_labels=NUM_LABELS)
   if LANGUAGE == 'ru':
-    tokenizer = AutoTokenizer.from_pretrained("roberta-large-mnli", use_fast=True)
+    tokenizer = AutoTokenizer.from_pretrained("blinoff/roberta-base-russian-v0", use_fast=True)
     classification_model = AutoModelForSequenceClassification.from_pretrained(
-    "roberta-large-mnli", num_labels=NUM_LABELS, ignore_mismatched_sizes=True) 
+    "blinoff/roberta-base-russian-v0", num_labels=NUM_LABELS)
+  if LANGUAGE == 'fr':
+    tokenizer = AutoTokenizer.from_pretrained("roberta-base", use_fast=True)
+    classification_model = AutoModelForSequenceClassification.from_pretrained(
+    "roberta-base", num_labels=NUM_LABELS)
 if model_name == 'XLNet':
   if LANGUAGE == 'en':
-    tokenizer = AutoTokenizer.from_pretrained("xlnet-large-cased", use_fast=True)
+    tokenizer = AutoTokenizer.from_pretrained("xlnet-base-cased", use_fast=True)
     classification_model = AutoModelForSequenceClassification.from_pretrained(
-    "xlnet-large-cased", num_labels=NUM_LABELS)
+    "xlnet-base-cased", num_labels=NUM_LABELS)
 if model_name == 'DeBERTa':
   if LANGUAGE == 'en':
-    tokenizer = AutoTokenizer.from_pretrained("microsoft/deberta-v3-large", use_fast=True)
+    tokenizer = AutoTokenizer.from_pretrained("microsoft/deberta-base", use_fast=True)
     classification_model = AutoModelForSequenceClassification.from_pretrained(
-    "microsoft/deberta-v3-large", num_labels=NUM_LABELS)
+    "microsoft/deberta-base", num_labels=NUM_LABELS)
 if model_name == 'alBERT':
   if LANGUAGE == 'en':
-    tokenizer = AutoTokenizer.from_pretrained("albert-large-v2", use_fast=True)
+    tokenizer = AutoTokenizer.from_pretrained("albert-base-v2", use_fast=True)
     classification_model = AutoModelForSequenceClassification.from_pretrained(
-    "albert-large-v2", num_labels=NUM_LABELS)
+    "albert-base-v2", num_labels=NUM_LABELS)
 
 #Dasaset and Dataloader creation 
 dataset_train_tt_split = PersTecData_tt_split(data_type="train",tokenizer=tokenizer, language = LANGUAGE)
@@ -301,14 +293,6 @@ dataset_test_tt_split = PersTecData_tt_split(data_type="test",
 test_loader_tt_split = DataLoader(dataset_test_tt_split, batch_size=8,
                                  num_workers=20, pin_memory=True)
 
-# #Data visualization
-# print(dataset_val_tt_split.input_ids[5])
-# print(tokenizer.convert_ids_to_tokens(dataset_val_tt_split.input_ids[5]))
-# label = dataset_val_tt_split.y[5]
-# print(label)
-# print(dataset_val_tt_split[5][3],dataset_val_tt_split[5][4])
-# print(my_binarizer_task1.inverse_transform(label.reshape(1, -1)))
-
 #Training
 model = PLMClassifier_tt_split(classification_model)
 
@@ -316,24 +300,17 @@ model = PLMClassifier_tt_split(classification_model)
 run_name = model_name + '_' + LANGUAGE + '_' + str(EPOCHS)
 if args.save == 'True':
   checkpoint_callback = ModelCheckpoint(
-      dirpath='../lightning_logs/large_en',
+      dirpath='../lightning_logs/test',
       filename= run_name)
 
-wandb.init(
-      name = run_name,
-      project="NUANS", 
-      config={
-      "epochs": EPOCHS
-      })
-logger = WandbLogger()
+
 if args.save == 'True':
-  trainer1 = pl.Trainer(accelerator = 'gpu', devices = [1],max_epochs=EPOCHS, logger = logger, callbacks=[checkpoint_callback])
+  trainer1 = pl.Trainer(accelerator = 'gpu', devices = [1],max_epochs=EPOCHS, callbacks=[checkpoint_callback])
 else:
-  trainer1 = pl.Trainer(accelerator = 'gpu', devices = [1],max_epochs=EPOCHS, logger = logger)
+  trainer1 = pl.Trainer(accelerator = 'gpu', devices = [1],max_epochs=EPOCHS)
 
 trainer1.fit(model, train_loader_tt_split, 
              val_loader_tt_split)
-wandb.finish()
 
 #Test
 def test_classifier(model, data_loader, thresholds):
@@ -341,7 +318,7 @@ def test_classifier(model, data_loader, thresholds):
     model.eval()
     result = {}
     for i, batch in enumerate(data_loader):
-      batch_ids, batch_mask,_, article, line = batch
+      batch_ids, batch_mask, article, line = batch
       preds = model(batch_ids.cuda(), batch_mask.cuda())
       for threshold in thresholds:
         predictions = torch.greater(preds,
@@ -353,9 +330,9 @@ def test_classifier(model, data_loader, thresholds):
     return result
 if args.save == 'True':
   thresholds = [x / 10 for x in range(0, 11)]
-  result = test_classifier(model, val_loader_tt_split, thresholds)
+  result = test_classifier(model, test_loader_tt_split, thresholds)
 
-  with open('../lightning_logs/{}_dictionary.pkl'.format(run_name), 'wb') as f:
+  with open('../lightning_logs/test/{}_dictionary.pkl'.format(run_name), 'wb') as f:
       pickle.dump(result, f)
 
   my_list = []
@@ -365,4 +342,4 @@ if args.save == 'True':
 
   my_df = pd.DataFrame(my_list, columns= ['Article_id','Line_id','Techniques'])
 
-  my_df.to_csv('../lightning_logs/' + run_name + '_output.txt',header=None, index=None, sep='\t')
+  my_df.to_csv('../lightning_logs/test/' + run_name + '_output.txt',header=None, index=None, sep='\t')
