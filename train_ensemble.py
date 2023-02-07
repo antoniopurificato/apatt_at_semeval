@@ -237,16 +237,13 @@ class EnsembleClassifier(pl.LightningModule):
             x = model(samples, masks)
             preds.append(x)
         preds = torch.stack(preds)
-        #print("PREDS: ",preds[0][1],preds[1][1]) #sono da 0 a 3 e devo cercare di pesare
-        #print(preds.shape,type(preds))
         pred = torch.mean(preds, axis=0)
-        #print("PRED: ",pred.shape)
-        return pred #preds
+        return pred
 
 
 
 if LANGUAGE == 'en':
-    tokenizer_bert = AutoTokenizer.from_pretrained("bert-large-uncased", use_fast=True)
+    tokenizer_bert = AutoTokenizer.from_pretrained("bert-base-uncased", use_fast=True)
     dataset_train_bert = PersTecData_tt_split(data_type="train",tokenizer=tokenizer_bert, language = LANGUAGE)
     train_loader_bert = DataLoader(dataset_train_bert, batch_size=8,num_workers=0, pin_memory=True)
     dataset_val_bert = PersTecData_tt_split(data_type="dev",tokenizer=tokenizer_bert, language = LANGUAGE)
@@ -254,7 +251,7 @@ if LANGUAGE == 'en':
     dataset_test_bert = PersTecData_tt_split(data_type="test", tokenizer=tokenizer_bert, language=LANGUAGE)
     test_loader_bert = DataLoader(dataset_test_bert, batch_size=8, num_workers=2, pin_memory=True)
     
-    tokenizer_roberta = AutoTokenizer.from_pretrained("roberta-large", use_fast=True)
+    tokenizer_roberta = AutoTokenizer.from_pretrained("roberta-base", use_fast=True)
     dataset_train_RoBERTa = PersTecData_tt_split(data_type="train", tokenizer=tokenizer_roberta, language=LANGUAGE)
     train_loader_RoBERTa = DataLoader(dataset_train_RoBERTa, batch_size=8, num_workers=2, pin_memory=True)
     dataset_val_RoBERTa = PersTecData_tt_split(data_type="dev", tokenizer=tokenizer_roberta, language=LANGUAGE)
@@ -262,7 +259,7 @@ if LANGUAGE == 'en':
     dataset_test_RoBERTa = PersTecData_tt_split(data_type="test", tokenizer=tokenizer_roberta, language=LANGUAGE)
     test_loader_RoBERTa = DataLoader(dataset_test_RoBERTa, batch_size=8, num_workers=2, pin_memory=True)
 
-    tokenizer_xlnet = AutoTokenizer.from_pretrained("xlnet-large-cased", use_fast=True)
+    tokenizer_xlnet = AutoTokenizer.from_pretrained("xlnet-base-cased", use_fast=True)
     dataset_train_xlnet = PersTecData_tt_split(data_type="train", tokenizer=tokenizer_xlnet, language=LANGUAGE)
     train_loader_xlnet = DataLoader(dataset_train_xlnet, batch_size=8, num_workers=2, pin_memory=True)
     dataset_val_xlnet = PersTecData_tt_split(data_type="dev", tokenizer=tokenizer_xlnet, language=LANGUAGE)
@@ -270,7 +267,7 @@ if LANGUAGE == 'en':
     dataset_test_xlnet = PersTecData_tt_split(data_type="test", tokenizer=tokenizer_xlnet, language=LANGUAGE)
     test_loader_xlnet = DataLoader(dataset_test_xlnet, batch_size=8, num_workers=2, pin_memory=True)
 
-    tokenizer_deberta = AutoTokenizer.from_pretrained("microsoft/deberta-v3-large", use_fast=True)
+    tokenizer_deberta = AutoTokenizer.from_pretrained("microsoft/deberta-base", use_fast=True)
     dataset_train_deberta = PersTecData_tt_split(data_type="train", tokenizer=tokenizer_deberta, language=LANGUAGE)
     train_loader_deberta = DataLoader(dataset_train_deberta, batch_size=8, num_workers=2, pin_memory=True)
     dataset_val_deberta = PersTecData_tt_split(data_type="dev", tokenizer=tokenizer_deberta, language=LANGUAGE)
@@ -278,7 +275,7 @@ if LANGUAGE == 'en':
     dataset_test_deberta = PersTecData_tt_split(data_type="test", tokenizer=tokenizer_deberta, language=LANGUAGE)
     test_loader_deberta = DataLoader(dataset_test_deberta, batch_size=8, num_workers=2, pin_memory=True)
 
-    tokenizer_albert = AutoTokenizer.from_pretrained("albert-large-v2", use_fast=True)
+    tokenizer_albert = AutoTokenizer.from_pretrained("albert-base-v2", use_fast=True)
     dataset_train_albert = PersTecData_tt_split(data_type="train", tokenizer=tokenizer_albert, language=LANGUAGE)
     train_loader_albert = DataLoader(dataset_train_albert, batch_size=8, num_workers=2, pin_memory=True)
     dataset_val_albert = PersTecData_tt_split(data_type="dev", tokenizer=tokenizer_albert, language=LANGUAGE)
