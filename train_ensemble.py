@@ -11,15 +11,14 @@ from tqdm import tqdm
 import pandas as pd
 from torch.utils.data import DataLoader
 
-PATH = '/home/antpur/projects/apatt_at_semeval/semeval2023task3bundle-v4'
-os.chdir(PATH)
 parser = argparse.ArgumentParser()
 parser.add_argument('--epochs', type=int, help='Number of epochs')
 parser.add_argument('--language', type=str, help='Language')
-parser.add_argument('--threshold', type=float, help='Value of the threshold')
-parser.add_argument('--mode', type=str, help='online or offline')
+parser.add_argument('--threshold', type=float, default = 0.2, help='Value of the threshold')
 parser.add_argument('--save', type=str, choices = ['True','False'], default = 'False', help='Save or not the model')
+parser.add_argument('--path',type=str, default = '/home/antpur/projects/apatt_at_semeval/semeval2023task3bundle-v4', help = 'Path where is stored the folder of the dataset')
 args = parser.parse_args()
+PATH = args.path
 EPOCHS = args.epochs
 LANGUAGE = args.language
 THRESHOLD = args.threshold
@@ -27,6 +26,7 @@ NUM_LABELS = 23
 torch.manual_seed(21)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 run_name = LANGUAGE + '_ensemble_' + str(EPOCHS)
+os.chdir(PATH)
 
 def tuple_to_list(my_tuple):
   my_list = []
@@ -356,7 +356,7 @@ if LANGUAGE == 'ru':
     roberta = AutoModelForSequenceClassification.from_pretrained(
     "blinoff/roberta-base-russian-v0", num_labels=NUM_LABELS)
 
-    model_bert = PLMClassifier_tt_split.load_from_checkpoint('../lightning_logs/test/Bert_{}_10-v1.ckpt'.format(LANGUAGE), plm = bert).to(device)
+    model_bert = PLMClassifier_tt_split.load_from_checkpoint('../lightning_logs/Bert_{}_10-v1.ckpt'.format(LANGUAGE), plm = bert).to(device)
     model_roberta = PLMClassifier_tt_split.load_from_checkpoint('../lightning_logs/RoBERTa_{}_10-v1.ckpt'.format(LANGUAGE), plm = roberta).to(device)
     ensemble = EnsembleClassifier([model_bert, model_roberta])
 
@@ -408,8 +408,6 @@ if LANGUAGE == 'fr':
 
     dataset_val1_ensemble = PersTecDataEnsemble(data_type="val",tokenizers=[tokenizer_bert, tokenizer_roberta])
     val_loader_ensemble = DataLoader(dataset_val1_ensemble, batch_size=8, num_workers=2, pin_memory=True)
-    #dataset_test1_ensemble = PersTecDataEnsemble(data_type="test",tokenizers=[tokenizer_bert])
-    #test_loader_ensemble = DataLoader(dataset_test1_ensemble, batch_size=8, num_workers=2, pin_memory=True)
 
     bert = AutoModelForSequenceClassification.from_pretrained(
     "dbmdz/bert-base-french-europeana-cased", num_labels=NUM_LABELS)
@@ -471,9 +469,9 @@ if args.save == 'True':
         if b[2] == THRESHOLD:
             my_list.append([b[0],b[1],tuple_to_list(c)])
 
-    with open('../lightning_logs/test/{}_dictionary.pkl'.format(run_name), 'wb') as f:
+    with open('../lightning_logs/{}_dictionary.pkl'.format(run_name), 'wb') as f:
         pickle.dump(result_ensemble, f)
 
     my_df = pd.DataFrame(my_list, columns= ['Article_id','Line_id','Techniques'])
 
-    my_df.to_csv('../lightning_logs/test/' + run_name + '_output.txt',header=None, index=None, sep='\t')
+    my_df.to_csv('../lightning_logs/' + run_name + '_output.txt',header=None, index=None, sep='\t')
